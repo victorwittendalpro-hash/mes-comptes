@@ -6,7 +6,7 @@
 <title>Mes Comptes — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
   --paper: #F4EFE3;
@@ -461,9 +461,12 @@ function persist(){ scheduleSave(); renderAll(); }
 
 // ==================== Rendering router ====================
 function renderAll(){
-  renderComptes();
-  renderEpargne();
-  renderSalaire();
+  if(typeof Chart === 'undefined'){
+    toast("La librairie de graphiques n'a pas pu se charger (connexion ou CDN bloqué). Les données restent visibles, mais sans graphiques.", true);
+  }
+  try{ renderComptes(); } catch(e){ console.error('renderComptes failed', e); }
+  try{ renderEpargne(); } catch(e){ console.error('renderEpargne failed', e); }
+  try{ renderSalaire(); } catch(e){ console.error('renderSalaire failed', e); }
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -636,6 +639,7 @@ function renderComptes(){
     const e = yearEntries.find(x=>x.month===i+1);
     return e ? e.balance : null;
   });
+  if(typeof Chart === 'undefined') return;
   if(comptesChart) comptesChart.destroy();
   const ctx1 = document.getElementById('chartComptesYear');
   comptesChart = new Chart(ctx1, {
@@ -858,6 +862,7 @@ function renderEpargne(){
     const found = [...av].reverse().find(p=>p.date<=d);
     return found ? found.montant : null;
   });
+  if(typeof Chart === 'undefined') return;
   if(epargneChart) epargneChart.destroy();
   const ctx = document.getElementById('chartEpargne');
   epargneChart = new Chart(ctx, {
@@ -968,6 +973,7 @@ function renderSalaire(){
     toast('Salaire enregistré.');
   });
 
+  if(typeof Chart === 'undefined') return;
   if(salaireChart) salaireChart.destroy();
   const ctx = document.getElementById('chartSalaire');
   salaireChart = new Chart(ctx, {
