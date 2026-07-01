@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes Comptes — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+:root{
+  --paper: #F4EFE3;
+  --paper-2: #EDE6D4;
+  --card: #FBF8F0;
+  --ink: #22301F;
+  --ink-soft: #5B6B54;
+  --rule: #D9CFB4;
+  --rule-strong: #B9AC85;
+  --credit: #2F6F4E;
+  --credit-soft: #E3EEE3;
+  --debit: #A8471F;
+  --debit-soft: #F4E3D8;
+  --gold: #A9812E;
+  --gold-soft: #F1E6C8;
+  --navy: #263B4A;
+  --shadow: 0 1px 2px rgba(34,48,31,0.06), 0 4px 16px rgba(34,48,31,0.06);
+  --radius: 14px;
+  --display: 'Fraunces', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+*{ box-sizing: border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:
+    linear-gradient(180deg, var(--paper) 0%, var(--paper) 100%);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  padding: 0 0 60px 0;
+}
+body::before{
+  content:"";
+  position: fixed; inset:0;
+  pointer-events:none;
+  background-image:
+    repeating-linear-gradient(180deg, transparent, transparent 27px, rgba(89,74,44,0.035) 28px);
+  z-index:0;
+}
+.wrap{ max-width: 1080px; margin: 0 auto; padding: 28px 24px 0; position:relative; z-index:1; }
+
+/* Header */
+.topbar{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap: 16px; margin-bottom: 22px; flex-wrap:wrap;
+}
+.brand h1{
+  font-family: var(--display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: 34px;
+  margin: 0 0 2px;
+  letter-spacing: -0.01em;
+}
+.brand .sub{
+  color: var(--ink-soft); font-size: 13.5px; font-family: var(--mono);
+}
+.topbar-actions{ display:flex; align-items:center; gap:10px; }
+.sync-badge{
+  display:flex; align-items:center; gap:7px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
+  background: var(--card); border: 1px solid var(--rule);
+  padding: 7px 12px; border-radius: 999px; box-shadow: var(--shadow);
+  cursor: default;
+}
+.sync-dot{ width:7px; height:7px; border-radius:50%; background:#B9AC85; flex:none; }
+.sync-dot.on{ background: var(--credit); }
+.sync-dot.busy{ background: var(--gold); animation: pulse 1s infinite ease-in-out; }
+.sync-dot.err{ background: var(--debit); }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+.icon-btn{
+  width:38px; height:38px; border-radius: 10px;
+  border: 1px solid var(--rule); background: var(--card);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; box-shadow: var(--shadow); color: var(--ink);
+  transition: transform .12s ease, border-color .12s ease;
+}
+.icon-btn:hover{ border-color: var(--rule-strong); transform: translateY(-1px); }
+.icon-btn svg{ width:18px; height:18px; }
+
+/* Tabs */
+.tabs{
+  display:flex; gap:4px; border-bottom: 2px solid var(--rule);
+  margin-bottom: 26px; overflow-x:auto;
+}
+.tab-btn{
+  font-family: var(--display); font-size: 16px; font-weight:500;
+  background:none; border:none; cursor:pointer; color: var(--ink-soft);
+  padding: 10px 18px 12px; position:relative; white-space:nowrap;
+}
+.tab-btn.active{ color: var(--ink); }
+.tab-btn.active::after{
+  content:""; position:absolute; left:10px; right:10px; bottom:-2px; height:3px;
+  background: var(--gold); border-radius: 3px 3px 0 0;
+}
+.tab-panel{ display:none; animation: fade .25s ease; }
+.tab-panel.active{ display:block; }
+@keyframes fade{ from{opacity:0; transform: translateY(4px);} to{opacity:1; transform:none;} }
+
+/* Cards & layout */
+.grid{ display:grid; gap:16px; }
+.grid.cols-3{ grid-template-columns: repeat(3, 1fr); }
+.grid.cols-4{ grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 760px){ .grid.cols-3, .grid.cols-4{ grid-template-columns: 1fr 1fr; } }
+
+.card{
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
+.card h3{
+  font-family: var(--display); font-weight:500; font-size: 18px; margin: 0 0 12px;
+}
+.kpi{ padding: 16px 18px; }
+.kpi .label{ font-size:12px; text-transform:uppercase; letter-spacing:.06em; color: var(--ink-soft); margin-bottom:8px; font-weight:600;}
+.kpi .value{ font-family: var(--mono); font-size: 24px; font-weight:600; letter-spacing:-0.01em; }
+.kpi .value.pos{ color: var(--credit); }
+.kpi .value.neg{ color: var(--debit); }
+.kpi .foot{ margin-top:6px; font-size:12.5px; color: var(--ink-soft); }
+
+.section-title{
+  font-family: var(--display); font-size: 20px; font-weight:600; margin: 30px 0 14px;
+  display:flex; align-items:center; gap:10px;
+}
+.section-title .rule{ flex:1; height:1px; background: var(--rule); }
+
+.chart-card{ padding: 20px 22px 12px; }
+.chart-wrap{ position:relative; height: 260px; }
+
+/* Chips (year selector etc) */
+.chip-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.chip{
+  font-family: var(--mono); font-size:13px; padding:6px 14px; border-radius:999px;
+  border:1px solid var(--rule); background: var(--card); cursor:pointer; color: var(--ink-soft);
+}
+.chip.active{ background: var(--navy); border-color: var(--navy); color: #F4EFE3; }
+
+/* Tables */
+table{ width:100%; border-collapse: collapse; font-size: 14px; }
+th{
+  text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em;
+  color: var(--ink-soft); font-weight:600; padding: 8px 10px; border-bottom: 2px solid var(--rule);
+}
+td{ padding: 9px 10px; border-bottom: 1px solid var(--rule); font-family: var(--mono); }
+td.num{ text-align:right; }
+tr:hover td{ background: rgba(169,129,46,0.06); }
+td.pos{ color: var(--credit); }
+td.neg{ color: var(--debit); }
+.row-actions{ display:flex; gap:6px; }
+.mini-btn{
+  border:1px solid var(--rule); background:var(--card); border-radius:7px; padding:3px 8px;
+  font-family: var(--sans); font-size:12px; cursor:pointer; color: var(--ink-soft);
+}
+.mini-btn:hover{ border-color: var(--rule-strong); color: var(--ink); }
+.mini-btn.danger:hover{ border-color: var(--debit); color: var(--debit); }
+
+/* Forms */
+.form-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-top:14px; }
+.field{ display:flex; flex-direction:column; gap:5px; }
+.field label{ font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); font-weight:600; }
+.field input, .field select{
+  font-family: var(--mono); font-size: 14px; padding: 8px 10px;
+  border:1px solid var(--rule); border-radius:8px; background:#fff; color: var(--ink);
+  min-width: 110px;
+}
+.field input:focus, .field select:focus{ outline:2px solid var(--gold); outline-offset:1px; border-color: var(--gold); }
+.btn{
+  font-family: var(--sans); font-weight:600; font-size: 13.5px; cursor:pointer;
+  padding: 9px 16px; border-radius: 9px; border:1px solid var(--navy);
+  background: var(--navy); color: #F4EFE3;
+}
+.btn:hover{ opacity:.92; }
+.btn.secondary{ background: var(--card); color: var(--ink); border-color: var(--rule); }
+.btn.secondary:hover{ border-color: var(--rule-strong); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* Modal */
+.modal-backdrop{
+  position:fixed; inset:0; background: rgba(34,48,31,0.45); display:none;
+  align-items:center; justify-content:center; z-index: 50; padding: 20px;
+}
+.modal-backdrop.open{ display:flex; }
+.modal{
+  background: var(--paper); border-radius: 16px; max-width: 480px; width:100%;
+  padding: 26px 26px 22px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); border:1px solid var(--rule);
+  max-height: 90vh; overflow-y:auto;
+}
+.modal h2{ font-family: var(--display); font-size:22px; margin:0 0 6px; }
+.modal p.hint{ color: var(--ink-soft); font-size:13px; margin: 0 0 18px; line-height:1.5; }
+.modal .field{ margin-bottom: 12px; width:100%; }
+.modal .field input{ width:100%; }
+.modal-actions{ display:flex; gap:10px; margin-top: 18px; justify-content:flex-end; }
+
+.toast{
+  position: fixed; bottom: 20px; left:50%; transform: translateX(-50%) translateY(10px);
+  background: var(--navy); color:#F4EFE3; padding: 11px 18px; border-radius: 10px;
+  font-size: 13.5px; box-shadow: var(--shadow); opacity:0; pointer-events:none;
+  transition: opacity .2s ease, transform .2s ease; z-index: 60; font-family: var(--sans);
+}
+.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+.toast.err{ background: var(--debit); }
+
+.empty{ color: var(--ink-soft); font-size: 13.5px; padding: 14px 4px; }
+.small-note{ font-size:12px; color: var(--ink-soft); margin-top:10px; line-height:1.5; }
+a{ color: var(--navy); }
+
+.legend-row{ display:flex; gap:16px; align-items:center; margin-bottom:6px; flex-wrap:wrap;}
+.legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); }
+.legend-dot{ width:9px; height:9px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>Mes Comptes</h1>
+      <div class="sub">suivi personnel — depuis 2018</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="sync-badge" id="syncBadge">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Mode local</span>
+      </div>
+      <button class="icon-btn" id="settingsBtn" title="Synchronisation GitHub">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="comptes">Comptes mensuels</button>
+    <button class="tab-btn" data-tab="epargne">Épargne</button>
+    <button class="tab-btn" data-tab="salaire">Évolution salariale</button>
+  </div>
+
+  <!-- TAB: COMPTES -->
+  <div class="tab-panel active" id="tab-comptes"></div>
+
+  <!-- TAB: EPARGNE -->
+  <div class="tab-panel" id="tab-epargne"></div>
+
+  <!-- TAB: SALAIRE -->
+  <div class="tab-panel" id="tab-salaire"></div>
+
+</div>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Synchronisation GitHub</h2>
+    <p class="hint">Connecte un dépôt GitHub pour sauvegarder tes données automatiquement et les retrouver sur tous tes appareils. Le token n'est jamais enregistré dans le navigateur : il faudra le ressaisir à chaque session (voir note en bas).</p>
+    <div class="field">
+      <label for="ghOwner">Propriétaire (owner)</label>
+      <input type="text" id="ghOwner" placeholder="ex : victor-dupont">
+    </div>
+    <div class="field">
+      <label for="ghRepo">Dépôt (repo)</label>
+      <input type="text" id="ghRepo" placeholder="ex : mes-comptes">
+    </div>
+    <div class="field">
+      <label for="ghPath">Chemin du fichier de données</label>
+      <input type="text" id="ghPath" placeholder="data.json" value="data.json">
+    </div>
+    <div class="field">
+      <label for="ghToken">Personal Access Token (scope "repo")</label>
+      <input type="password" id="ghToken" placeholder="ghp_...">
+    </div>
+    <div class="small-note">Le token reste en mémoire dans l'onglet du navigateur uniquement — il disparaît si tu recharges la page. Une fois le dashboard hébergé sur GitHub Pages, on pourra ajouter un stockage plus persistant si tu le souhaites.</div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="ghDisconnect">Déconnecter</button>
+      <button class="btn secondary" id="ghCancel">Fermer</button>
+      <button class="btn" id="ghConnect">Connecter &amp; charger</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script id="seed-data" type="application/json">{"comptes": [{"id": "cpt_0001", "year": 2018, "month": 1, "balance": -383.61, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0002", "year": 2018, "month": 2, "balance": 388.13, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0003", "year": 2018, "month": 3, "balance": 137.91, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0004", "year": 2018, "month": 4, "balance": 2950.71, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0005", "year": 2018, "month": 5, "balance": 898.65, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0006", "year": 2018, "month": 6, "balance": 4705.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0007", "year": 2018, "month": 7, "balance": 1702.24, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0008", "year": 2018, "month": 8, "balance": 1239.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0009", "year": 2018, "month": 9, "balance": 1346.78, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0010", "year": 2018, "month": 10, "balance": -39.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0011", "year": 2018, "month": 11, "balance": 822.45, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0012", "year": 2018, "month": 12, "balance": 194.84, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0013", "year": 2019, "month": 1, "balance": 1009.61, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0014", "year": 2019, "month": 2, "balance": -24.74, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0015", "year": 2019, "month": 3, "balance": 171.35, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0016", "year": 2019, "month": 4, "balance": -293.42, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0017", "year": 2019, "month": 5, "balance": -170.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0018", "year": 2019, "month": 6, "balance": 14.3, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0019", "year": 2019, "month": 7, "balance": 282.17, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0020", "year": 2019, "month": 8, "balance": 423.46, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0021", "year": 2019, "month": 9, "balance": -186.76, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0022", "year": 2019, "month": 10, "balance": 54.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0023", "year": 2019, "month": 11, "balance": -204.02, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0024", "year": 2019, "month": 12, "balance": 463.42, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0025", "year": 2020, "month": 1, "balance": 371.35, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0026", "year": 2020, "month": 2, "balance": -275.01, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0027", "year": 2020, "month": 3, "balance": 54.14, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0028", "year": 2020, "month": 4, "balance": 346.34, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0029", "year": 2020, "month": 5, "balance": 121.87, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0030", "year": 2020, "month": 6, "balance": 206.82, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0031", "year": 2020, "month": 7, "balance": 190.84, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0032", "year": 2020, "month": 8, "balance": 195.77, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0033", "year": 2020, "month": 9, "balance": -178.08, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0034", "year": 2020, "month": 10, "balance": 2687.89, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0035", "year": 2020, "month": 11, "balance": 1693.14, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0036", "year": 2020, "month": 12, "balance": 813.01, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0037", "year": 2021, "month": 1, "balance": -431.43, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0038", "year": 2021, "month": 2, "balance": -589.74, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0039", "year": 2021, "month": 3, "balance": 392.89, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0040", "year": 2021, "month": 4, "balance": 62.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0041", "year": 2021, "month": 5, "balance": 233.68, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0042", "year": 2021, "month": 6, "balance": 879.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0043", "year": 2021, "month": 7, "balance": -257.91, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0044", "year": 2021, "month": 8, "balance": -106.46, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0045", "year": 2021, "month": 9, "balance": 19.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0046", "year": 2021, "month": 10, "balance": -546.99, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0047", "year": 2021, "month": 11, "balance": 777.52, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0048", "year": 2021, "month": 12, "balance": 1184.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0049", "year": 2022, "month": 1, "balance": -1010.93, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0050", "year": 2022, "month": 2, "balance": 1099.18, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0051", "year": 2022, "month": 3, "balance": -391.73, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0052", "year": 2022, "month": 4, "balance": -135.57, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0053", "year": 2022, "month": 5, "balance": 180.51, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0054", "year": 2022, "month": 6, "balance": -40.25, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0055", "year": 2022, "month": 7, "balance": -1759.52, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0056", "year": 2022, "month": 8, "balance": -2943.92, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0057", "year": 2022, "month": 9, "balance": -453.88, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0058", "year": 2022, "month": 10, "balance": -1477.27, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0059", "year": 2022, "month": 11, "balance": -1258.28, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0060", "year": 2022, "month": 12, "balance": -2106.09, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0061", "year": 2023, "month": 1, "balance": -2522.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0062", "year": 2023, "month": 2, "balance": 144.74, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0063", "year": 2023, "month": 3, "balance": 827.73, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0064", "year": 2023, "month": 4, "balance": -686.57, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0065", "year": 2023, "month": 5, "balance": 51.41, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0066", "year": 2023, "month": 6, "balance": -780.19, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0067", "year": 2023, "month": 7, "balance": 1000.71, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0068", "year": 2023, "month": 8, "balance": 163.24, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0069", "year": 2023, "month": 9, "balance": 1745.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0070", "year": 2023, "month": 10, "balance": 397.79, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0071", "year": 2023, "month": 11, "balance": 937.88, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0072", "year": 2023, "month": 12, "balance": 288.16, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0073", "year": 2024, "month": 1, "balance": 966.51, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0074", "year": 2024, "month": 2, "balance": -866.1, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0075", "year": 2024, "month": 3, "balance": -616.04, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0076", "year": 2024, "month": 4, "balance": -773.31, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0077", "year": 2024, "month": 5, "balance": 151.4, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0078", "year": 2024, "month": 6, "balance": -477.82, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0079", "year": 2024, "month": 7, "balance": 81.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0080", "year": 2024, "month": 8, "balance": 257.57, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0081", "year": 2024, "month": 9, "balance": -332.7, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0082", "year": 2024, "month": 10, "balance": -16.74, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0083", "year": 2024, "month": 11, "balance": -374.19, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0084", "year": 2024, "month": 12, "balance": 575.15, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0085", "year": 2025, "month": 1, "balance": 478.84, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0086", "year": 2025, "month": 2, "balance": -1113.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0087", "year": 2025, "month": 3, "balance": 231.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0088", "year": 2025, "month": 4, "balance": 1499.93, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0089", "year": 2025, "month": 5, "balance": 77.96, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0090", "year": 2025, "month": 6, "balance": 10.23, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0091", "year": 2025, "month": 7, "balance": 254.58, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0092", "year": 2025, "month": 8, "balance": 5259.06, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0093", "year": 2025, "month": 9, "balance": 3840.76, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0094", "year": 2025, "month": 10, "balance": 2436.68, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0095", "year": 2025, "month": 11, "balance": 464.6, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0096", "year": 2025, "month": 12, "balance": 2047.1, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0097", "year": 2026, "month": 1, "balance": 698.56, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0098", "year": 2026, "month": 2, "balance": 508.14, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0099", "year": 2026, "month": 3, "balance": 1124.99, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "cpt_0100", "year": 2026, "month": 4, "balance": 579.18, "updatedAt": "2026-07-01T00:00:00.000Z"}], "salaire": [{"id": "sal_0001", "date": "2018-01", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0002", "date": "2018-02", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0003", "date": "2018-03", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0004", "date": "2018-04", "montant": 636.36, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0005", "date": "2018-05", "montant": 800.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0006", "date": "2018-06", "montant": 700.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0007", "date": "2018-07", "montant": 700.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0008", "date": "2018-08", "montant": 700.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0009", "date": "2018-09", "montant": 700.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0010", "date": "2018-10", "montant": 700.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0011", "date": "2018-11", "montant": 1350.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0012", "date": "2018-12", "montant": 1400.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0013", "date": "2019-01", "montant": 1543.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0014", "date": "2019-02", "montant": 1350.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0015", "date": "2019-03", "montant": 1350.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0016", "date": "2019-04", "montant": 1350.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0017", "date": "2019-05", "montant": 1200.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0018", "date": "2019-06", "montant": 1338.4, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0019", "date": "2019-07", "montant": 2015.96, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0020", "date": "2019-08", "montant": 2429.85, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0021", "date": "2019-09", "montant": 1436.52, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0022", "date": "2019-10", "montant": 1514.17, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0023", "date": "2019-11", "montant": 1264.37, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0024", "date": "2019-12", "montant": 1358.87, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0025", "date": "2020-01", "montant": 1391.94, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0026", "date": "2020-02", "montant": 1420.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0027", "date": "2020-03", "montant": 1420.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0028", "date": "2020-04", "montant": 1183.88, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0029", "date": "2020-05", "montant": 710.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0030", "date": "2020-06", "montant": 710.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0031", "date": "2020-07", "montant": 710.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0032", "date": "2020-08", "montant": 924.78, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0033", "date": "2020-09", "montant": 1352.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0034", "date": "2020-10", "montant": 1420.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0035", "date": "2020-11", "montant": 1420.64, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0036", "date": "2020-12", "montant": 710.32, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0037", "date": "2021-01", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0038", "date": "2021-02", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0039", "date": "2021-03", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0040", "date": "2021-04", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0041", "date": "2021-05", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0042", "date": "2021-06", "montant": 345.04, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0043", "date": "2021-07", "montant": 612.72, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0044", "date": "2021-08", "montant": 1291.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0045", "date": "2021-09", "montant": 900.5, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0046", "date": "2021-10", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0047", "date": "2021-11", "montant": 1900.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0048", "date": "2021-12", "montant": 950.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0049", "date": "2022-01", "montant": 950.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0050", "date": "2022-02", "montant": 950.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0051", "date": "2022-03", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0052", "date": "2022-04", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0053", "date": "2022-05", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0054", "date": "2022-06", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0055", "date": "2022-07", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0056", "date": "2022-08", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0057", "date": "2022-09", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0058", "date": "2022-10", "montant": 1788.78, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0059", "date": "2022-11", "montant": 1768.71, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0060", "date": "2022-12", "montant": 1484.3, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0061", "date": "2023-01", "montant": 1798.63, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0062", "date": "2023-02", "montant": 1719.5, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0063", "date": "2023-03", "montant": 583.25, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0064", "date": "2023-04", "montant": 814.66, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0065", "date": "2023-05", "montant": 0.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0066", "date": "2023-06", "montant": 1255.39, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0067", "date": "2023-07", "montant": 1453.33, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0068", "date": "2023-08", "montant": 1510.43, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0069", "date": "2023-09", "montant": 1846.69, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0070", "date": "2023-10", "montant": 1441.39, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0071", "date": "2023-11", "montant": 1756.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0072", "date": "2023-12", "montant": 1776.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0073", "date": "2024-01", "montant": 1897.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0074", "date": "2024-02", "montant": 1901.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0075", "date": "2024-03", "montant": 1929.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0076", "date": "2024-04", "montant": 2023.07, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0077", "date": "2024-05", "montant": 2039.07, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0078", "date": "2024-06", "montant": 2948.08, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0079", "date": "2024-07", "montant": 2019.07, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0080", "date": "2024-08", "montant": 2079.07, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0081", "date": "2024-09", "montant": 2151.81, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0082", "date": "2024-10", "montant": 2139.8, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0083", "date": "2024-11", "montant": 3175.8, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0084", "date": "2024-12", "montant": 2199.8, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0085", "date": "2025-01", "montant": 2148.28, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0086", "date": "2025-02", "montant": 2036.12, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0087", "date": "2025-03", "montant": 2164.28, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0088", "date": "2025-04", "montant": 2144.28, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0089", "date": "2025-05", "montant": 2096.35, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0090", "date": "2025-06", "montant": 2969.56, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0091", "date": "2025-07", "montant": 2141.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0092", "date": "2025-08", "montant": 2134.06, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0093", "date": "2025-09", "montant": 2149.29, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0094", "date": "2025-10", "montant": 1978.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0095", "date": "2025-11", "montant": 3014.21, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0096", "date": "2025-12", "montant": 2063.35, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0097", "date": "2026-01", "montant": 1985.18, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0098", "date": "2026-02", "montant": 2042.34, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0099", "date": "2026-03", "montant": 2054.34, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0100", "date": "2026-04", "montant": 2034.34, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "sal_0101", "date": "2026-05", "montant": 1973.9, "updatedAt": "2026-07-01T00:00:00.000Z"}], "epargne": {"pel": [{"id": "pel_0001", "date": "2025-08", "montant": 14000.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0002", "date": "2025-09", "montant": 14100, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0003", "date": "2025-10", "montant": 14200, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0004", "date": "2025-11", "montant": 14300, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0005", "date": "2025-12", "montant": 14400, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0006", "date": "2026-01", "montant": 14752, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0007", "date": "2026-02", "montant": 14852, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0008", "date": "2026-03", "montant": 14952, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0009", "date": "2026-04", "montant": 14866.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0010", "date": "2026-05", "montant": 14966, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0011", "date": "2026-06", "montant": 15066, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pel_0012", "date": "2026-07", "montant": 15166, "updatedAt": "2026-07-01T00:00:00.000Z"}], "assuranceVie": [{"id": "av_0001", "date": "2016-01", "montant": 50879.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0002", "date": "2017-01", "montant": 38000.0, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0003", "date": "2018-01", "montant": 30517.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0004", "date": "2019-01", "montant": 30517.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0005", "date": "2020-01", "montant": 30517.95, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0006", "date": "2021-01", "montant": 23645.14, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0007", "date": "2022-01", "montant": 13250.61, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0008", "date": "2023-01", "montant": 1952.42, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0009", "date": "2024-01", "montant": 309.82, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0010", "date": "2024-04", "montant": 613.14, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0011", "date": "2024-07", "montant": 915.2, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0012", "date": "2024-10", "montant": 1223.28, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0013", "date": "2025-01", "montant": 1542.99, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0014", "date": "2025-04", "montant": 1850.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0015", "date": "2025-05", "montant": 1951.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0016", "date": "2025-06", "montant": 2157.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0017", "date": "2025-07", "montant": 2257.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0018", "date": "2025-08", "montant": 2357.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0019", "date": "2025-09", "montant": 2457.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0020", "date": "2025-10", "montant": 2557.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0021", "date": "2025-11", "montant": 2657.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0022", "date": "2025-12", "montant": 2757.62, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "av_0023", "date": "2026-01", "montant": 2951.94, "updatedAt": "2026-07-01T00:00:00.000Z"}], "pea": [{"id": "pea_0001", "societe": "AIRBUS SE", "prix": 171.54, "perf": {"5 jours": 0.0613, "1 mois": 0.0846, "3 mois": 0.0202, "6 mois": 0.11, "Début d'année": 0.0653, "1 an": 0.1467, "3 ans": 0.8443, "5 ans": 1.7092}, "quantite": null, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pea_0002", "societe": "ACCOR", "prix": 44.88, "perf": {"5 jours": 0.0305, "1 mois": -0.0367, "3 mois": 0.0048, "6 mois": -0.0471, "Début d'année": -0.0598, "1 an": 0.1309, "3 ans": 0.5713, "5 ans": 0.7983}, "quantite": null, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pea_0003", "societe": "SAFRAN", "prix": 266.4, "perf": {"5 jours": 0.0127, "1 mois": 0.0326, "3 mois": 0.0482, "6 mois": 0.2547, "Début d'année": 0.2243, "1 an": 0.2772, "3 ans": 1.7695, "5 ans": 1.9312}, "quantite": null, "updatedAt": "2026-07-01T00:00:00.000Z"}, {"id": "pea_0004", "societe": "SAINT-GOBAIN", "prix": 96.78, "perf": {"5 jours": 0.0112, "1 mois": 0.0023, "3 mois": -0.0189, "6 mois": 0.1428, "Début d'année": 0.1406, "1 an": 0.3371, "3 ans": 1.262, "5 ans": 2.1905}, "quantite": null, "updatedAt": "2026-07-01T00:00:00.000Z"}]}}</script>
+<script>// ==================== Utils ====================
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const MONTHS_SHORT = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct","Nov","Déc"];
+const fmtEUR = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : v.toLocaleString('fr-FR', {style:'currency', currency:'EUR', maximumFractionDigits:0});
+const fmtEUR2 = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : v.toLocaleString('fr-FR', {style:'currency', currency:'EUR', minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtPct = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : (v*100).toLocaleString('fr-FR', {minimumFractionDigits:1, maximumFractionDigits:1}) + " %";
+const uid = (p) => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const nowISO = () => new Date().toISOString();
+function b64EncodeUnicode(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m,p1)=>String.fromCharCode('0x'+p1)));
+}
+function b64DecodeUnicode(str){
+  return decodeURIComponent(atob(str).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+function toast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>{ t.className = 'toast'; }, 3200);
+}
+function monthKey(year, month){ return year + "-" + String(month).padStart(2,'0'); }
+
+// ==================== State ====================
+const SEED = JSON.parse(document.getElementById('seed-data').textContent);
+let state = JSON.parse(JSON.stringify(SEED));
+let gh = { owner:null, repo:null, path:'data.json', token:null, sha:null, connected:false, pollTimer:null };
+let saveTimer = null;
+
+// ==================== GitHub sync ====================
+function setSyncStatus(mode, text){
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncText');
+  dot.className = 'sync-dot ' + mode;
+  label.textContent = text;
+}
+
+async function ghRequest(method, body){
+  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${encodeURIComponent(gh.path)}`;
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${gh.token}`,
+      'Accept': 'application/vnd.github+json'
+    }
+  };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  return res;
+}
+
+async function ghConnectAndLoad(){
+  setSyncStatus('busy', 'Connexion…');
+  try{
+    const res = await ghRequest('GET');
+    if(res.status === 200){
+      const data = await res.json();
+      gh.sha = data.sha;
+      const remote = JSON.parse(b64DecodeUnicode(data.content));
+      state = mergeState(state, remote);
+      renderAll();
+      gh.connected = true;
+      setSyncStatus('on', `${gh.owner}/${gh.repo}`);
+      toast('Connecté — données chargées depuis GitHub.');
+      startPolling();
+    } else if(res.status === 404){
+      gh.connected = true;
+      setSyncStatus('on', `${gh.owner}/${gh.repo} (nouveau)`);
+      toast('Dépôt connecté. Le fichier sera créé à la première sauvegarde.');
+      startPolling();
+      await ghSave(true);
+    } else if(res.status === 401 || res.status === 403){
+      setSyncStatus('err', 'Token invalide');
+      toast('Token invalide ou permissions insuffisantes.', true);
+      gh.connected = false;
+    } else {
+      setSyncStatus('err', 'Erreur ' + res.status);
+      toast('Erreur de connexion GitHub (' + res.status + ').', true);
+      gh.connected = false;
+    }
+  } catch(e){
+    setSyncStatus('err', 'Hors ligne');
+    toast('Impossible de joindre GitHub. Vérifie ta connexion.', true);
+    gh.connected = false;
+  }
+}
+
+function scheduleSave(){
+  if(!gh.connected) return;
+  clearTimeout(saveTimer);
+  setSyncStatus('busy', 'Modifications…');
+  saveTimer = setTimeout(()=>ghSave(false), 1800);
+}
+
+async function ghSave(silent){
+  if(!gh.connected) return;
+  setSyncStatus('busy', 'Sauvegarde…');
+  try{
+    state.meta = state.meta || {};
+    state.meta.lastModified = nowISO();
+    const content = b64EncodeUnicode(JSON.stringify(state, null, 2));
+    const body = {
+      message: 'Mise à jour des comptes — ' + new Date().toLocaleString('fr-FR'),
+      content,
+      branch: undefined
+    };
+    if(gh.sha) body.sha = gh.sha;
+    const res = await ghRequest('PUT', body);
+    if(res.ok){
+      const data = await res.json();
+      gh.sha = data.content.sha;
+      setSyncStatus('on', `${gh.owner}/${gh.repo}`);
+      if(!silent) toast('Sauvegardé sur GitHub.');
+    } else {
+      const errBody = await res.json().catch(()=>({}));
+      setSyncStatus('err', 'Échec sauvegarde');
+      toast('Échec de la sauvegarde GitHub (' + res.status + ').', true);
+    }
+  } catch(e){
+    setSyncStatus('err', 'Hors ligne');
+    toast('Sauvegarde impossible : connexion perdue.', true);
+  }
+}
+
+function startPolling(){
+  clearInterval(gh.pollTimer);
+  gh.pollTimer = setInterval(async ()=>{
+    if(!gh.connected || saveTimer) return;
+    try{
+      const res = await ghRequest('GET');
+      if(res.status === 200){
+        const data = await res.json();
+        if(data.sha !== gh.sha){
+          const remote = JSON.parse(b64DecodeUnicode(data.content));
+          gh.sha = data.sha;
+          state = mergeState(state, remote);
+          renderAll();
+          toast('Nouvelles données synchronisées depuis un autre appareil.');
+        }
+      }
+    } catch(e){ /* silent */ }
+  }, 25000);
+}
+
+// Merge strategy: union by id, keep entry with latest updatedAt on conflict
+function mergeState(local, remote){
+  function mergeArr(a=[], b=[]){
+    const map = new Map();
+    [...a, ...b].forEach(item=>{
+      const existing = map.get(item.id);
+      if(!existing || (item.updatedAt||'') > (existing.updatedAt||'')){
+        map.set(item.id, item);
+      }
+    });
+    return Array.from(map.values());
+  }
+  return {
+    meta: (remote.meta && local.meta && remote.meta.lastModified > local.meta.lastModified) ? remote.meta : (local.meta || remote.meta || {}),
+    comptes: mergeArr(local.comptes, remote.comptes),
+    salaire: mergeArr(local.salaire, remote.salaire),
+    epargne: {
+      pel: mergeArr(local.epargne?.pel, remote.epargne?.pel),
+      assuranceVie: mergeArr(local.epargne?.assuranceVie, remote.epargne?.assuranceVie),
+      pea: mergeArr(local.epargne?.pea, remote.epargne?.pea)
+    }
+  };
+}
+
+function touch(entry){ entry.updatedAt = nowISO(); return entry; }
+function persist(){ scheduleSave(); renderAll(); }
+
+// ==================== Rendering router ====================
+function renderAll(){
+  renderComptes();
+  renderEpargne();
+  renderSalaire();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ==================== Settings modal ====================
+const modal = document.getElementById('settingsModal');
+document.getElementById('settingsBtn').addEventListener('click', ()=>{
+  document.getElementById('ghOwner').value = gh.owner || '';
+  document.getElementById('ghRepo').value = gh.repo || '';
+  document.getElementById('ghPath').value = gh.path || 'data.json';
+  modal.classList.add('open');
+});
+document.getElementById('ghCancel').addEventListener('click', ()=> modal.classList.remove('open'));
+modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.remove('open'); });
+document.getElementById('ghDisconnect').addEventListener('click', ()=>{
+  gh = { owner:null, repo:null, path:'data.json', token:null, sha:null, connected:false, pollTimer:null };
+  clearInterval(gh.pollTimer);
+  setSyncStatus('', 'Mode local');
+  modal.classList.remove('open');
+  toast('Déconnecté de GitHub. Les données restent modifiables localement.');
+});
+document.getElementById('ghConnect').addEventListener('click', async ()=>{
+  const owner = document.getElementById('ghOwner').value.trim();
+  const repo = document.getElementById('ghRepo').value.trim();
+  const path = document.getElementById('ghPath').value.trim() || 'data.json';
+  const token = document.getElementById('ghToken').value.trim();
+  if(!owner || !repo || !token){
+    toast('Merci de renseigner owner, repo et token.', true);
+    return;
+  }
+  gh.owner = owner; gh.repo = repo; gh.path = path; gh.token = token;
+  modal.classList.remove('open');
+  await ghConnectAndLoad();
+});
+// ==================== TAB: COMPTES MENSUELS ====================
+let comptesChart = null;
+let comptesSelectedYear = null;
+
+function getComptesYears(){
+  const years = Array.from(new Set(state.comptes.map(c=>c.year))).sort((a,b)=>a-b);
+  return years;
+}
+
+function renderComptes(){
+  const el = document.getElementById('tab-comptes');
+  const years = getComptesYears();
+  if(comptesSelectedYear === null || !years.includes(comptesSelectedYear)){
+    comptesSelectedYear = years.length ? years[years.length-1] : new Date().getFullYear();
+  }
+  const yearEntries = state.comptes.filter(c=>c.year===comptesSelectedYear).sort((a,b)=>a.month-b.month);
+  const totalCredit = yearEntries.filter(e=>e.balance>0).reduce((s,e)=>s+e.balance,0);
+  const totalDebit = yearEntries.filter(e=>e.balance<0).reduce((s,e)=>s+e.balance,0);
+  const solde = totalCredit + totalDebit;
+
+  // cumulative all-time
+  const allSorted = [...state.comptes].sort((a,b)=> a.year===b.year ? a.month-b.month : a.year-b.year);
+  let cum = 0;
+  const cumSeries = allSorted.map(e=>{ cum += e.balance; return {label: monthKey(e.year,e.month), value: cum}; });
+
+  el.innerHTML = `
+    <div class="chip-row" id="yearChips"></div>
+    <div class="grid cols-3" style="margin-bottom:22px;">
+      <div class="card kpi">
+        <div class="label">Total crédit ${comptesSelectedYear}</div>
+        <div class="value pos">${fmtEUR(totalCredit)}</div>
+        <div class="foot">mois positifs cumulés</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Total débit ${comptesSelectedYear}</div>
+        <div class="value neg">${fmtEUR(totalDebit)}</div>
+        <div class="foot">mois négatifs cumulés</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Solde net ${comptesSelectedYear}</div>
+        <div class="value ${solde>=0?'pos':'neg'}">${fmtEUR(solde)}</div>
+        <div class="foot">crédit − débit</div>
+      </div>
+    </div>
+
+    <div class="card chart-card" style="margin-bottom:22px;">
+      <h3>Solde mensuel — ${comptesSelectedYear}</h3>
+      <div class="chart-wrap"><canvas id="chartComptesYear"></canvas></div>
+    </div>
+
+    <div class="card chart-card" style="margin-bottom:22px;">
+      <h3>Solde cumulé (depuis ${allSorted.length?allSorted[0].year:'—'})</h3>
+      <div class="chart-wrap"><canvas id="chartComptesCumul"></canvas></div>
+    </div>
+
+    <div class="section-title"><span>Détail des mois — ${comptesSelectedYear}</span><span class="rule"></span></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Mois</th><th class="num">Solde</th><th></th></tr></thead>
+        <tbody id="comptesTableBody"></tbody>
+      </table>
+      <div class="form-row">
+        <div class="field">
+          <label>Année</label>
+          <input type="number" id="cptYear" value="${comptesSelectedYear}" style="width:90px">
+        </div>
+        <div class="field">
+          <label>Mois</label>
+          <select id="cptMonth">${MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select>
+        </div>
+        <div class="field">
+          <label>Solde (€)</label>
+          <input type="number" step="0.01" id="cptBalance" placeholder="ex : 450.30 ou -120">
+        </div>
+        <button class="btn" id="cptAddBtn">Ajouter / mettre à jour</button>
+      </div>
+      <div class="small-note">Un montant positif = mois excédentaire (crédit), négatif = mois déficitaire (débit). Ajouter un mois déjà existant remplace sa valeur.</div>
+    </div>
+  `;
+
+  // year chips
+  const chipRow = document.getElementById('yearChips');
+  years.forEach(y=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (y===comptesSelectedYear ? ' active' : '');
+    chip.textContent = y;
+    chip.addEventListener('click', ()=>{ comptesSelectedYear = y; renderComptes(); });
+    chipRow.appendChild(chip);
+  });
+
+  // table
+  const tbody = document.getElementById('comptesTableBody');
+  if(yearEntries.length === 0){
+    tbody.innerHTML = `<tr><td colspan="3" class="empty">Aucune donnée pour ${comptesSelectedYear}.</td></tr>`;
+  } else {
+    tbody.innerHTML = yearEntries.map(e=>`
+      <tr>
+        <td>${MONTHS[e.month-1]}</td>
+        <td class="num ${e.balance>=0?'pos':'neg'}">${fmtEUR2(e.balance)}</td>
+        <td><div class="row-actions">
+          <button class="mini-btn danger" data-del="${e.id}">Suppr.</button>
+        </div></td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('[data-del]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        state.comptes = state.comptes.filter(c=>c.id !== b.dataset.del);
+        persist();
+      });
+    });
+  }
+
+  document.getElementById('cptAddBtn').addEventListener('click', ()=>{
+    const year = parseInt(document.getElementById('cptYear').value, 10);
+    const month = parseInt(document.getElementById('cptMonth').value, 10);
+    const balance = parseFloat(document.getElementById('cptBalance').value);
+    if(!year || !month || isNaN(balance)){ toast('Merci de renseigner année, mois et solde.', true); return; }
+    const existing = state.comptes.find(c=>c.year===year && c.month===month);
+    if(existing){ existing.balance = balance; touch(existing); }
+    else { state.comptes.push(touch({id: uid('cpt'), year, month, balance})); }
+    comptesSelectedYear = year;
+    persist();
+    toast('Mois enregistré.');
+  });
+
+  // charts
+  const monthLabels = Array.from({length:12}, (_,i)=>MONTHS_SHORT[i]);
+  const monthData = Array.from({length:12}, (_,i)=>{
+    const e = yearEntries.find(x=>x.month===i+1);
+    return e ? e.balance : null;
+  });
+  if(comptesChart) comptesChart.destroy();
+  const ctx1 = document.getElementById('chartComptesYear');
+  comptesChart = new Chart(ctx1, {
+    type: 'bar',
+    data: { labels: monthLabels, datasets: [{
+      data: monthData,
+      backgroundColor: monthData.map(v => v===null ? 'rgba(0,0,0,0)' : (v>=0 ? '#2F6F4E' : '#A8471F')),
+      borderRadius: 4, maxBarThickness: 34
+    }]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: (c)=> fmtEUR2(c.raw) } } },
+      scales:{
+        y:{ grid:{color:'#E4DCC4'}, ticks:{ font:{family:'IBM Plex Mono', size:11}, callback:(v)=>fmtEUR(v) } },
+        x:{ grid:{display:false}, ticks:{ font:{family:'IBM Plex Mono', size:11} } }
+      }
+    }
+  });
+
+  if(comptesCumulChart) comptesCumulChart.destroy();
+  const ctx2 = document.getElementById('chartComptesCumul');
+  comptesCumulChart = new Chart(ctx2, {
+    type: 'line',
+    data: { labels: cumSeries.map(p=>p.label), datasets: [{
+      data: cumSeries.map(p=>p.value),
+      borderColor: '#A9812E', backgroundColor: 'rgba(169,129,46,0.12)',
+      fill:true, tension:0.25, pointRadius:0, borderWidth:2
+    }]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>fmtEUR2(c.raw) } } },
+      scales:{
+        y:{ grid:{color:'#E4DCC4'}, ticks:{ font:{family:'IBM Plex Mono', size:11}, callback:(v)=>fmtEUR(v) } },
+        x:{ grid:{display:false}, ticks:{ font:{family:'IBM Plex Mono', size:10}, maxTicksLimit:8 } }
+      }
+    }
+  });
+}
+let comptesCumulChart = null;
+// ==================== TAB: EPARGNE ====================
+let epargneChart = null;
+const PERF_COLS = ["5 jours","1 mois","3 mois","6 mois","Début d'année","1 an","3 ans","5 ans"];
+
+function latestOf(arr, dateField='date'){
+  if(!arr || arr.length===0) return null;
+  return [...arr].sort((a,b)=> a[dateField].localeCompare(b[dateField]))[arr.length-1];
+}
+
+function renderEpargne(){
+  const el = document.getElementById('tab-epargne');
+  const pel = [...(state.epargne.pel||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const av = [...(state.epargne.assuranceVie||[])].sort((a,b)=>a.date.localeCompare(b.date));
+  const pea = state.epargne.pea || [];
+
+  const pelLast = pel.length ? pel[pel.length-1].montant : 0;
+  const avLast = av.length ? av[av.length-1].montant : 0;
+  const totalEpargne = pelLast + avLast;
+
+  el.innerHTML = `
+    <div class="grid cols-3" style="margin-bottom:22px;">
+      <div class="card kpi">
+        <div class="label">PEL</div>
+        <div class="value pos">${fmtEUR(pelLast)}</div>
+        <div class="foot">${pel.length ? 'au ' + pel[pel.length-1].date : 'aucune donnée'}</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Assurance vie</div>
+        <div class="value pos">${fmtEUR(avLast)}</div>
+        <div class="foot">${av.length ? 'au ' + av[av.length-1].date : 'aucune donnée'}</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Épargne totale (PEL + AV)</div>
+        <div class="value" style="color:var(--gold)">${fmtEUR(totalEpargne)}</div>
+        <div class="foot">hors PEA (valeur totale non calculable sans quantités détenues)</div>
+      </div>
+    </div>
+
+    <div class="card chart-card" style="margin-bottom:22px;">
+      <h3>Évolution de l'épargne</h3>
+      <div class="legend-row">
+        <div class="legend-item"><span class="legend-dot" style="background:#263B4A"></span>PEL</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#A9812E"></span>Assurance vie</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chartEpargne"></canvas></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:22px;">
+      <div class="card">
+        <h3>PEL — historique</h3>
+        <table>
+          <thead><tr><th>Mois</th><th class="num">Montant cumulé</th><th></th></tr></thead>
+          <tbody id="pelBody"></tbody>
+        </table>
+        <div class="form-row">
+          <div class="field"><label>Mois</label><input type="month" id="pelDate"></div>
+          <div class="field"><label>Montant (€)</label><input type="number" step="0.01" id="pelMontant"></div>
+          <button class="btn" id="pelAddBtn">Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Assurance vie — historique</h3>
+        <table>
+          <thead><tr><th>Mois</th><th class="num">Montant</th><th></th></tr></thead>
+          <tbody id="avBody"></tbody>
+        </table>
+        <div class="form-row">
+          <div class="field"><label>Mois</label><input type="month" id="avDate"></div>
+          <div class="field"><label>Montant (€)</label><input type="number" step="0.01" id="avMontant"></div>
+          <button class="btn" id="avAddBtn">Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title"><span>PEA — portefeuille actions</span><span class="rule"></span></div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Société</th><th class="num">Prix</th>
+          ${PERF_COLS.map(c=>`<th class="num">${c}</th>`).join('')}
+          <th></th>
+        </tr></thead>
+        <tbody id="peaBody"></tbody>
+      </table>
+      <div class="form-row">
+        <div class="field"><label>Société</label><input type="text" id="peaSociete" style="width:150px"></div>
+        <div class="field"><label>Prix (€)</label><input type="number" step="0.01" id="peaPrix"></div>
+        <button class="btn" id="peaAddBtn">Ajouter une ligne</button>
+      </div>
+      <div class="small-note">Les colonnes de performance (%) peuvent être modifiées directement en cliquant sur une valeur du tableau. La valeur totale du portefeuille n'est pas calculée ici faute de quantités détenues par ligne — dis-moi si tu veux que je les ajoute dans une prochaine version.</div>
+    </div>
+  `;
+
+  // PEL table
+  const pelBody = document.getElementById('pelBody');
+  pelBody.innerHTML = pel.length ? pel.map(p=>`
+    <tr><td>${p.date}</td><td class="num">${fmtEUR2(p.montant)}</td>
+    <td><button class="mini-btn danger" data-del-pel="${p.id}">Suppr.</button></td></tr>
+  `).join('') : `<tr><td colspan="3" class="empty">Aucune donnée.</td></tr>`;
+  pelBody.querySelectorAll('[data-del-pel]').forEach(b=>b.addEventListener('click', ()=>{
+    state.epargne.pel = state.epargne.pel.filter(p=>p.id!==b.dataset.delPel);
+    persist();
+  }));
+  document.getElementById('pelAddBtn').addEventListener('click', ()=>{
+    const date = document.getElementById('pelDate').value;
+    const montant = parseFloat(document.getElementById('pelMontant').value);
+    if(!date || isNaN(montant)){ toast('Renseigne un mois et un montant.', true); return; }
+    const existing = state.epargne.pel.find(p=>p.date===date);
+    if(existing){ existing.montant = montant; touch(existing); }
+    else state.epargne.pel.push(touch({id: uid('pel'), date, montant}));
+    persist();
+    toast('PEL mis à jour.');
+  });
+
+  // AV table
+  const avBody = document.getElementById('avBody');
+  avBody.innerHTML = av.length ? av.map(p=>`
+    <tr><td>${p.date}</td><td class="num">${fmtEUR2(p.montant)}</td>
+    <td><button class="mini-btn danger" data-del-av="${p.id}">Suppr.</button></td></tr>
+  `).join('') : `<tr><td colspan="3" class="empty">Aucune donnée.</td></tr>`;
+  avBody.querySelectorAll('[data-del-av]').forEach(b=>b.addEventListener('click', ()=>{
+    state.epargne.assuranceVie = state.epargne.assuranceVie.filter(p=>p.id!==b.dataset.delAv);
+    persist();
+  }));
+  document.getElementById('avAddBtn').addEventListener('click', ()=>{
+    const date = document.getElementById('avDate').value;
+    const montant = parseFloat(document.getElementById('avMontant').value);
+    if(!date || isNaN(montant)){ toast('Renseigne un mois et un montant.', true); return; }
+    const existing = state.epargne.assuranceVie.find(p=>p.date===date);
+    if(existing){ existing.montant = montant; touch(existing); }
+    else state.epargne.assuranceVie.push(touch({id: uid('av'), date, montant}));
+    persist();
+    toast('Assurance vie mise à jour.');
+  });
+
+  // PEA table
+  const peaBody = document.getElementById('peaBody');
+  peaBody.innerHTML = pea.length ? pea.map(l=>`
+    <tr>
+      <td>${l.societe}</td>
+      <td class="num">${fmtEUR2(l.prix)}</td>
+      ${PERF_COLS.map(c=>`<td class="num ${(l.perf&&l.perf[c]>=0)?'pos':'neg'}" contenteditable="true" data-perf="${l.id}|${c}">${l.perf && l.perf[c]!=null ? fmtPct(l.perf[c]) : ''}</td>`).join('')}
+      <td><button class="mini-btn danger" data-del-pea="${l.id}">Suppr.</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="${PERF_COLS.length+3}" class="empty">Aucune ligne.</td></tr>`;
+  peaBody.querySelectorAll('[data-del-pea]').forEach(b=>b.addEventListener('click', ()=>{
+    state.epargne.pea = state.epargne.pea.filter(l=>l.id!==b.dataset.delPea);
+    persist();
+  }));
+  peaBody.querySelectorAll('[data-perf]').forEach(cell=>{
+    cell.addEventListener('blur', ()=>{
+      const [id, col] = cell.dataset.perf.split('|');
+      const line = state.epargne.pea.find(l=>l.id===id);
+      if(!line) return;
+      const raw = cell.textContent.replace('%','').replace(',','.').trim();
+      const num = parseFloat(raw);
+      if(!isNaN(num)){
+        line.perf = line.perf || {};
+        line.perf[col] = num/100;
+        touch(line);
+        persist();
+      }
+    });
+  });
+  document.getElementById('peaAddBtn').addEventListener('click', ()=>{
+    const societe = document.getElementById('peaSociete').value.trim();
+    const prix = parseFloat(document.getElementById('peaPrix').value);
+    if(!societe || isNaN(prix)){ toast('Renseigne une société et un prix.', true); return; }
+    state.epargne.pea.push(touch({id: uid('pea'), societe, prix, perf:{}, quantite:null}));
+    persist();
+    toast('Ligne PEA ajoutée.');
+  });
+
+  // chart
+  const allDates = Array.from(new Set([...pel.map(p=>p.date), ...av.map(p=>p.date)])).sort();
+  const pelSeries = allDates.map(d=>{
+    const found = [...pel].reverse().find(p=>p.date<=d);
+    return found ? found.montant : null;
+  });
+  const avSeries = allDates.map(d=>{
+    const found = [...av].reverse().find(p=>p.date<=d);
+    return found ? found.montant : null;
+  });
+  if(epargneChart) epargneChart.destroy();
+  const ctx = document.getElementById('chartEpargne');
+  epargneChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels: allDates, datasets:[
+      { label:'PEL', data: pelSeries, borderColor:'#263B4A', backgroundColor:'rgba(38,59,74,0.08)', tension:0.2, pointRadius:0, borderWidth:2, spanGaps:true },
+      { label:'Assurance vie', data: avSeries, borderColor:'#A9812E', backgroundColor:'rgba(169,129,46,0.08)', tension:0.2, pointRadius:0, borderWidth:2, spanGaps:true }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> c.dataset.label + ' : ' + fmtEUR2(c.raw) } } },
+      scales:{
+        y:{ grid:{color:'#E4DCC4'}, ticks:{ font:{family:'IBM Plex Mono', size:11}, callback:(v)=>fmtEUR(v) } },
+        x:{ grid:{display:false}, ticks:{ font:{family:'IBM Plex Mono', size:10}, maxTicksLimit:8 } }
+      }
+    }
+  });
+}
+// ==================== TAB: SALAIRE ====================
+let salaireChart = null;
+
+function renderSalaire(){
+  const el = document.getElementById('tab-salaire');
+  const sal = [...state.salaire].sort((a,b)=>a.date.localeCompare(b.date));
+  const last = sal.length ? sal[sal.length-1] : null;
+  const last12 = sal.slice(-12);
+  const avg12 = last12.length ? last12.reduce((s,e)=>s+e.montant,0)/last12.length : 0;
+  const avgAll = sal.length ? sal.reduce((s,e)=>s+e.montant,0)/sal.length : 0;
+
+  // évolution vs il y a 1 an
+  let yoy = null;
+  if(last){
+    const [y,m] = last.date.split('-').map(Number);
+    const targetDate = monthKey(y-1, m);
+    const prevYear = sal.find(e=>e.date===targetDate);
+    if(prevYear && prevYear.montant){
+      yoy = (last.montant - prevYear.montant) / prevYear.montant;
+    }
+  }
+
+  el.innerHTML = `
+    <div class="grid cols-4" style="margin-bottom:22px;">
+      <div class="card kpi">
+        <div class="label">Dernier salaire</div>
+        <div class="value pos">${last ? fmtEUR(last.montant) : '—'}</div>
+        <div class="foot">${last ? last.date : ''}</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Moyenne 12 derniers mois</div>
+        <div class="value">${fmtEUR(avg12)}</div>
+        <div class="foot">${last12.length} mois pris en compte</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Évolution sur 1 an</div>
+        <div class="value ${yoy===null?'':(yoy>=0?'pos':'neg')}">${yoy===null?'—':(yoy>=0?'+':'')+fmtPct(yoy)}</div>
+        <div class="foot">vs même mois l'an dernier</div>
+      </div>
+      <div class="card kpi">
+        <div class="label">Moyenne depuis 2018</div>
+        <div class="value">${fmtEUR(avgAll)}</div>
+        <div class="foot">${sal.length} mois d'historique</div>
+      </div>
+    </div>
+
+    <div class="card chart-card" style="margin-bottom:22px;">
+      <h3>Évolution du salaire mensuel</h3>
+      <div class="chart-wrap"><canvas id="chartSalaire"></canvas></div>
+    </div>
+
+    <div class="section-title"><span>Historique</span><span class="rule"></span></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Mois</th><th class="num">Montant</th><th>Société</th><th></th></tr></thead>
+        <tbody id="salaireBody"></tbody>
+      </table>
+      <div class="form-row">
+        <div class="field"><label>Mois</label><input type="month" id="salDate"></div>
+        <div class="field"><label>Montant (€)</label><input type="number" step="0.01" id="salMontant"></div>
+        <div class="field"><label>Société (optionnel)</label><input type="text" id="salSociete" style="width:150px"></div>
+        <button class="btn" id="salAddBtn">Ajouter / mettre à jour</button>
+      </div>
+    </div>
+  `;
+
+  const tbody = document.getElementById('salaireBody');
+  const recentFirst = [...sal].reverse();
+  tbody.innerHTML = recentFirst.length ? recentFirst.map(e=>`
+    <tr>
+      <td>${e.date}</td>
+      <td class="num">${fmtEUR2(e.montant)}</td>
+      <td>${e.societe || ''}</td>
+      <td><button class="mini-btn danger" data-del-sal="${e.id}">Suppr.</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="4" class="empty">Aucune donnée.</td></tr>`;
+  tbody.querySelectorAll('[data-del-sal]').forEach(b=>b.addEventListener('click', ()=>{
+    state.salaire = state.salaire.filter(e=>e.id!==b.dataset.delSal);
+    persist();
+  }));
+  document.getElementById('salAddBtn').addEventListener('click', ()=>{
+    const date = document.getElementById('salDate').value;
+    const montant = parseFloat(document.getElementById('salMontant').value);
+    const societe = document.getElementById('salSociete').value.trim();
+    if(!date || isNaN(montant)){ toast('Renseigne un mois et un montant.', true); return; }
+    const existing = state.salaire.find(e=>e.date===date);
+    if(existing){ existing.montant = montant; if(societe) existing.societe = societe; touch(existing); }
+    else state.salaire.push(touch({id: uid('sal'), date, montant, societe: societe||null}));
+    persist();
+    toast('Salaire enregistré.');
+  });
+
+  if(salaireChart) salaireChart.destroy();
+  const ctx = document.getElementById('chartSalaire');
+  salaireChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels: sal.map(e=>e.date), datasets:[{
+      data: sal.map(e=>e.montant),
+      borderColor:'#2F6F4E', backgroundColor:'rgba(47,111,78,0.08)',
+      fill:true, tension:0.2, pointRadius:0, borderWidth:2
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>fmtEUR2(c.raw) } } },
+      scales:{
+        y:{ grid:{color:'#E4DCC4'}, ticks:{ font:{family:'IBM Plex Mono', size:11}, callback:(v)=>fmtEUR(v) } },
+        x:{ grid:{display:false}, ticks:{ font:{family:'IBM Plex Mono', size:9}, maxTicksLimit:10 } }
+      }
+    }
+  });
+}
+
+// init
+renderAll();
+setSyncStatus('', 'Mode local');
+</script>
+</body>
+</html>
