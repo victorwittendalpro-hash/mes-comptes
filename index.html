@@ -276,7 +276,11 @@ a{ color: var(--navy); }
       <label for="ghToken">Personal Access Token (scope "repo")</label>
       <input type="password" id="ghToken" placeholder="ghp_...">
     </div>
-    <div class="small-note">Le token reste en mémoire dans l'onglet du navigateur uniquement — il disparaît si tu recharges la page. Une fois le dashboard hébergé sur GitHub Pages, on pourra ajouter un stockage plus persistant si tu le souhaites.</div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color: var(--ink-soft); margin: 4px 0 2px;">
+      <input type="checkbox" id="ghRemember" style="width:auto;">
+      Se souvenir du token sur cet appareil (évite de le ressaisir à chaque visite)
+    </label>
+    <div class="small-note">⚠️ Si tu coches cette case, le token sera stocké dans ce navigateur. Pratique sur ton ordinateur personnel, à éviter sur un poste partagé ou public — n'importe qui utilisant ce navigateur pourrait alors accéder à tes données.</div>
     <div class="modal-actions">
       <button class="btn secondary" id="ghDisconnect">Déconnecter</button>
       <button class="btn secondary" id="ghCancel">Fermer</button>
@@ -313,9 +317,40 @@ function monthKey(year, month){ return year + "-" + String(month).padStart(2,'0'
 
 // ==================== State ====================
 const SEED = JSON.parse(document.getElementById('seed-data').textContent);
-let state = JSON.parse(JSON.stringify(SEED));
+const LS_DATA_KEY = 'mesComptes:data';
+const LS_GH_KEY = 'mesComptes:ghConfig';
+
+function loadInitialState(){
+  try{
+    const cached = localStorage.getItem(LS_DATA_KEY);
+    if(cached) return JSON.parse(cached);
+  } catch(e){ /* localStorage indisponible ou corrompu : on repart du seed */ }
+  return JSON.parse(JSON.stringify(SEED));
+}
+function saveLocalCache(){
+  try{ localStorage.setItem(LS_DATA_KEY, JSON.stringify(state)); }
+  catch(e){ /* quota dépassé ou navigateur en mode privé : tant pis, GitHub prend le relai */ }
+}
+
+let state = loadInitialState();
 let gh = { owner:null, repo:null, path:'data.json', token:null, sha:null, connected:false, pollTimer:null };
 let saveTimer = null;
+
+function loadGhConfig(){
+  try{
+    const raw = localStorage.getItem(LS_GH_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(e){ return null; }
+}
+function saveGhConfig(rememberToken){
+  try{
+    localStorage.setItem(LS_GH_KEY, JSON.stringify({
+      owner: gh.owner, repo: gh.repo, path: gh.path,
+      token: rememberToken ? gh.token : null
+    }));
+  } catch(e){ /* ignore */ }
+}
 
 // ==================== GitHub sync ====================
 function setSyncStatus(mode, text){
@@ -348,6 +383,7 @@ async function ghConnectAndLoad(){
       gh.sha = data.sha;
       const remote = JSON.parse(b64DecodeUnicode(data.content));
       state = mergeState(state, remote);
+      saveLocalCache();
       renderAll();
       gh.connected = true;
       setSyncStatus('on', `${gh.owner}/${gh.repo}`);
@@ -424,6 +460,7 @@ function startPolling(){
           const remote = JSON.parse(b64DecodeUnicode(data.content));
           gh.sha = data.sha;
           state = mergeState(state, remote);
+          saveLocalCache();
           renderAll();
           toast('Nouvelles données synchronisées depuis un autre appareil.');
         }
@@ -458,7 +495,7 @@ function mergeState(local, remote){
 }
 
 function touch(entry){ entry.updatedAt = nowISO(); return entry; }
-function persist(){ scheduleSave(); renderAll(); }
+function persist(){ saveLocalCache(); scheduleSave(); renderAll(); }
 
 // ==================== Rendering router ====================
 function renderAll(){
@@ -485,6 +522,7 @@ document.getElementById('settingsBtn').addEventListener('click', ()=>{
   document.getElementById('ghOwner').value = gh.owner || '';
   document.getElementById('ghRepo').value = gh.repo || '';
   document.getElementById('ghPath').value = gh.path || 'data.json';
+  document.getElementById('ghRemember').checked = false;
   modal.classList.add('open');
 });
 document.getElementById('ghCancel').addEventListener('click', ()=> modal.classList.remove('open'));
@@ -492,23 +530,40 @@ modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.classList.re
 document.getElementById('ghDisconnect').addEventListener('click', ()=>{
   gh = { owner:null, repo:null, path:'data.json', token:null, sha:null, connected:false, pollTimer:null };
   clearInterval(gh.pollTimer);
+  try{ localStorage.removeItem(LS_GH_KEY); } catch(e){}
   setSyncStatus('', 'Mode local');
   modal.classList.remove('open');
-  toast('Déconnecté de GitHub. Les données restent modifiables localement.');
+  toast('Déconnecté de GitHub. Tes données restent sauvegardées dans ce navigateur.');
 });
 document.getElementById('ghConnect').addEventListener('click', async ()=>{
   const owner = document.getElementById('ghOwner').value.trim();
   const repo = document.getElementById('ghRepo').value.trim();
   const path = document.getElementById('ghPath').value.trim() || 'data.json';
   const token = document.getElementById('ghToken').value.trim();
+  const remember = document.getElementById('ghRemember').checked;
   if(!owner || !repo || !token){
     toast('Merci de renseigner owner, repo et token.', true);
     return;
   }
   gh.owner = owner; gh.repo = repo; gh.path = path; gh.token = token;
+  saveGhConfig(remember);
   modal.classList.remove('open');
   await ghConnectAndLoad();
 });
+
+// Reconnexion automatique si owner/repo/token ont été mémorisés sur cet appareil
+(function tryAutoReconnect(){
+  const saved = loadGhConfig();
+  if(saved && saved.owner && saved.repo && saved.token){
+    gh.owner = saved.owner; gh.repo = saved.repo; gh.path = saved.path || 'data.json'; gh.token = saved.token;
+    ghConnectAndLoad();
+  } else if(saved && saved.owner && saved.repo){
+    // owner/repo mémorisés mais pas le token : on prérempli le formulaire pour aller plus vite
+    setSyncStatus('', 'Mode local (reconnecte-toi)');
+  } else {
+    setSyncStatus('', 'Mode local');
+  }
+})();
 // ==================== TAB: COMPTES MENSUELS ====================
 let comptesChart = null;
 let comptesSelectedYear = null;
@@ -1092,7 +1147,6 @@ function renderSalaire(){
 
 // init
 renderAll();
-setSyncStatus('', 'Mode local');
 </script>
 </body>
 </html>
